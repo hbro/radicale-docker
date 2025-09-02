@@ -1,0 +1,36 @@
+# Sensitive files
+users
+*.htpasswd
+*.key
+*.pem
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Environment files with credentials
+.env
+.env.local
+.env.*.local
+
+# Authentication files
+auth.conf
+ldap.conf
+*_secret
+*_password
+
+# Local test data
+/data/
+/collections/
+/var/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

@@ -1,0 +1,134 @@
+# Build and publish Radicale Docker image on upstream releases
+name: Build Radicale Docker Image
+
+on:
+  # Check for new releases every hour
+  schedule:
+    - cron: '0 * * * *'
+  # Allow manual trigger
+  workflow_dispatch:
+  # Trigger on push to main (for testing)
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.check.outputs.new_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      # Check out repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Get latest release from upstream
+      - name: Get latest Radicale release
+        id: upstream
+        run: |
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/Kozea/Radicale/releases/latest | jq -r '.tag_name')
+          echo "Latest upstream release: $LATEST_RELEASE"
+          echo "version=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+
+      # Check if we already built this version
+      - name: Check if already built
+        id: check
+        run: |
+          LATEST_UPSTREAM="${{ steps.upstream.outputs.version }}"
+          
+          # Get our latest release tag
+          OUR_LATEST=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name // "none"')
+          
+          echo "Our latest release: $OUR_LATEST"
+          echo "Upstream latest release: $LATEST_UPSTREAM"
+          
+          if [ "$OUR_LATEST" != "$LATEST_UPSTREAM" ]; then
+            echo "New release detected!"
+            echo "new_release=true" >> $GITHUB_OUTPUT
+            echo "version=$LATEST_UPSTREAM" >> $GITHUB_OUTPUT
+          else
+            echo "No new release"
+            echo "new_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    needs: check-release
+    if: needs.check-release.outputs.new_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      # Check out repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Log in to GitHub Container Registry
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract version without 'v' prefix if present
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          # Remove 'v' prefix if present
+          VERSION="${VERSION#v}"
+          echo "clean_version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Extract metadata
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.clean_version }}
+            type=raw,value=latest
+
+      # Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            RADICALE_VERSION=${{ steps.version.outputs.clean_version }}
+          platforms: linux/amd64,linux/arm64
+
+      # Create GitHub release
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.check-release.outputs.version }}
+          release_name: Radicale ${{ needs.check-release.outputs.version }}
+          body: |
+            Automated build of Radicale ${{ needs.check-release.outputs.version }}
+            
+            Docker image available at:
+            ```
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.clean_version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ```
+            
+            Upstream release: https://github.com/Kozea/Radicale/releases/tag/${{ needs.check-release.outputs.version }}
+          draft: false
+          prerelease: false

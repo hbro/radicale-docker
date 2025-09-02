@@ -1,0 +1,32 @@
+# Radicale configuration file
+# See https://radicale.org/v3.html for full documentation
+
+[server]
+# Listen on all interfaces
+hosts = 0.0.0.0:5232
+# Max parallel connections
+max_connections = 20
+# Max request size (100MB)
+max_content_length = 100000000
+# Socket timeout
+timeout = 30
+
+[auth]
+# Authentication method - set to 'none' by default for container
+# Can be overridden with environment variables or volume mount
+type = none
+# Delay after failed login
+delay = 1
+
+[storage]
+# Storage backend
+type = multifilesystem
+# Storage location
+filesystem_folder = /var/lib/radicale/collections
+# Max age for sync tokens (30 days)
+max_sync_token_age = 2592000
+
+[logging]
+# Logging level
+level = info
+# Log to stdout for container logs
