@@ -7,7 +7,8 @@ RUN apk add --no-cache \
   musl-dev \
   libffi-dev \
   ca-certificates \
-  openssl
+  openssl \
+  python3-dev
 
 # Create radicale user and directories
 RUN adduser -D -h /var/lib/radicale -s /bin/false radicale && \
