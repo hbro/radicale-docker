@@ -1,5 +1,5 @@
 # Build Radicale v3 Docker image
-FROM python:3.11-alpine
+FROM python:3-alpine
 
 # Install dependencies
 RUN apk add --no-cache \
@@ -18,9 +18,7 @@ RUN adduser -D -h /var/lib/radicale -s /bin/false radicale && \
 # Install Radicale and optional dependencies
 ARG RADICALE_VERSION
 RUN pip install --no-cache-dir \
-  radicale==${RADICALE_VERSION} \
-  passlib \
-  bcrypt
+  "radicale[bcrypt,passlib] @ https://github.com/Kozea/Radicale/archive/refs/tags/v${RADICALE_VERSION}.tar.gz"
 
 # Copy configuration
 COPY config /etc/radicale/config
