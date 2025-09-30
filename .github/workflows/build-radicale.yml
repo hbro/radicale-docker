@@ -2,9 +2,9 @@
 name: Build Radicale Docker Image
 
 on:
-  # Check for new releases every hour
+  # Check for new releases at 3 am
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0 3 * * *'
   # Allow manual trigger
   workflow_dispatch:
   # Trigger on push to main (for testing)
